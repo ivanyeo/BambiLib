@@ -1,16 +1,21 @@
 package com.ndnxr.bambi;
 
+import java.io.Serializable;
 import java.util.Date;
+
+import android.os.Parcel;
+import android.os.Parcelable;
 
 import com.ndnxr.bambi.BambiLib.TASK_TYPE;
 import com.ndnxr.bambi.BambiLib.URGENCY;
 
-public class Task {
+public class Task implements Parcelable {
 	private URGENCY urgency;
 	private Date date;
 	private TASK_TYPE type;
+	private Object payload;
 
-	public Task(TASK_TYPE type, URGENCY urgency, Date date) {
+	public Task(TASK_TYPE type, URGENCY urgency, Date date, Object payload) {
 		super();
 
 		// Error check
@@ -23,41 +28,27 @@ public class Task {
 			throw new RuntimeException("URGENCY: Cannot be null.");
 		}
 
-		// Process task based on urgency
-		switch (urgency) {
-		case NOW:
-			// TODO Immediate Processing
-			break;
-
-		case SCHEDULE:
-			// Ensure date is not null
-			if (date == null) {
-				throw new RuntimeException("SCHEDULE: Date cannot be null.");
-			}
-
-			// Throw an Exception if date is in the past
-			if (new Date().compareTo(date) < 0) {
-				throw new RuntimeException("Unable to schedule a Date in the past.");
-			}
-
-			// Set values
-			this.urgency = urgency;
-			this.date = date;
-			
-			// TODO: Invoke Bambi Service to Schedule Task
-			break;
-
-		case WIFI_ACTIVE:
-			// TODO Schedule Wifi Task
-			break;
-
-		default:
-			break;
-		}
+		// Set values
+		this.type = type;
+		this.urgency = urgency;
+		this.date = date;
+		this.payload = payload;
 	}
 
-	public Task(TASK_TYPE type, URGENCY urgency) {
-		this(type, urgency, null);
+	public Task(Parcel in) {
+		// Re-contruction of object from Parcel
+		urgency = (URGENCY) in.readSerializable();
+		date = (Date) in.readSerializable();
+		type = (TASK_TYPE) in.readSerializable();
+		payload = in.readSerializable();
+	}
+
+	public Object getPayload() {
+		return payload;
+	}
+
+	public void setPayload(Object payload) {
+		this.payload = payload;
 	}
 
 	public URGENCY getUrgency() {
@@ -83,4 +74,28 @@ public class Task {
 	public void setType(TASK_TYPE type) {
 		this.type = type;
 	}
+
+	@Override
+	public int describeContents() {
+		return 0;
+	}
+
+	@Override
+	public void writeToParcel(Parcel dest, int flags) {
+		// Flatten/Serialize Data
+		dest.writeSerializable(urgency);
+		dest.writeSerializable(date);
+		dest.writeSerializable(type);
+		dest.writeSerializable((Serializable) payload);
+	}
+
+	public static final Parcelable.Creator<Task> CREATOR = new Parcelable.Creator<Task>() {
+		public Task createFromParcel(Parcel in) {
+			return new Task(in);
+		}
+
+		public Task[] newArray(int size) {
+			return new Task[size];
+		}
+	};
 }
