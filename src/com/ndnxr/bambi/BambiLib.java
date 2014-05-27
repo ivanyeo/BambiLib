@@ -1,5 +1,7 @@
 package com.ndnxr.bambi;
 
+import java.util.ArrayList;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -8,8 +10,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.Parcelable;
 import android.os.RemoteException;
-import android.provider.Settings.Global;
 
 public class BambiLib {
 	// Messages to be passed to the Service by Clients for processing
@@ -36,7 +38,8 @@ public class BambiLib {
 	}
 
 	// Local Variables
-	Context context = null;
+	private Context context = null;
+	private final ArrayList<Task> pendingTasks = new ArrayList<Task>();
 
 	/**
 	 * Local contructor to establish context.
@@ -59,30 +62,99 @@ public class BambiLib {
 	 * 
 	 * @return true on success; false otherwise.
 	 */
-	public boolean sendEmail(Task task, Email email) {
+	public boolean sendEmail(Task task) {
 		// Error check
-		if (task == null || email == null) {
-			throw new RuntimeException("Task and Email cannot be null types.");
+		if (task == null) {
+			throw new RuntimeException("sendEmail(): Task cannot be null.");
 		}
 
-		// Ensure Service is bound
-		if (mIsBambiServiceBound && mBambiServiceMessenger != null) {
-			// Get a Message
-			Message msg = Message.obtain(null,
-					BambiLib.MESSAGE_SEND_EMAIL);
+		// Check that there is a payload and is of type Email
+		if (task.getPayload() == null || !(task.getPayload() instanceof Email)) {
+			throw new RuntimeException(
+					"sendEmail(): Task payload must be an instance of Email.");
+		}
 
+		// Schedule task for processing
+		return scheduleTask(task);
+	}
+
+	/**
+	 * Task processing controller as a central logic.
+	 * 
+	 * @param task
+	 *            Task given for processing
+	 */
+	private boolean processTask(Task task) {
+		// Ensure Service is bound
+		if (!mIsBambiServiceBound) {
+			// Service might have been killed by Kernel, try again later.
+			return false;
+		}
+
+		if (mBambiServiceMessenger == null) {
+			Config.Log("mBambiServiceMessenger is null!!");
+			return false;
+		}
+
+		// Processing according to Task type
+		switch (task.getType()) {
+		case EMAIL:
+			// Get a Message
+			Message msg = Message.obtain(null, BambiLib.MESSAGE_SEND_EMAIL);
+
+			// Place Parcelable here, not in the obj of Message.obtain()
+			msg.getData().putParcelable("email", (Parcelable) task.getPayload());
+			
 			// Send Message to Service
 			try {
 				mBambiServiceMessenger.send(msg);
 			} catch (RemoteException e) {
 				Config.Log("sendEmail(): ERROR: " + e.toString());
 			}
+			break;
 			
-			return true;
-		} else {
-			// Service might have been killed by Kernel, try again later.
-			return false;
+		default:
+			throw new RuntimeException("Invalid TASK_TYPE.");
 		}
+
+		return true;
+	}
+
+	private boolean scheduleTask(Task task) {
+		switch (task.getUrgency()) {
+		case NOW:
+			// Service has not started
+			if (mBambiServiceMessenger == null) {
+				// Append to pending taks list
+				pendingTasks.add(task);
+
+				return true;
+			} else {
+				// Begin processing the task
+				return processTask(task);
+			}
+		case SCHEDULE:
+			break;
+		case WIFI_ACTIVE:
+			break;
+		default:
+			throw new RuntimeException("Invalid URGENCY Type.");
+		}
+
+		return true;
+	}
+	
+	/**
+	 * Process all tasks that are in the pending tast list.
+	 */
+	private void processPendingTasks() {
+		// Process each task in the list
+		for (Task t : pendingTasks) {
+			processTask(t);
+		}
+		
+		// Empty the list
+		pendingTasks.clear();
 	}
 
 	/**
@@ -135,7 +207,7 @@ public class BambiLib {
 	}
 
 	/** Messenger connection to BambiEnergyService */
-	private Messenger mBambiServiceMessenger = null;
+	private volatile Messenger mBambiServiceMessenger = null;
 
 	/** Flag if client is connected to BambiEnergyService */
 	private boolean mIsBambiServiceBound = false;
@@ -162,6 +234,11 @@ public class BambiLib {
 				// If Service crashes, nothing to do here
 			}
 
+			// If there are tasks pending, begin processing them
+			if (pendingTasks.size() > 0) {
+				processPendingTasks();
+			}
+			
 			Config.Log("mServiceConnection::onServiceConnected()");
 		}
 
