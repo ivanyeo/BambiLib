@@ -9,44 +9,50 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.provider.Settings.Global;
 
 public class BambiLib {
 	// Messages to be passed to the Service by Clients for processing
-	static final int MESSAGE_REGISTER_CLIENT 	= 1;
-	static final int MESSAGE_UNREGISTER_CLIENT 	= 2;
-	static final int MESSAGE_REGISTER_SUCCESS	= 3;
-	static final int MESSAGE_UNREGISTER_SUCCESS	= 4;
-	
+	static final int MESSAGE_REGISTER_CLIENT = 1;
+	static final int MESSAGE_UNREGISTER_CLIENT = 2;
+	static final int MESSAGE_REGISTER_SUCCESS = 3;
+	static final int MESSAGE_UNREGISTER_SUCCESS = 4;
+
 	// Supported Service Functions
-	static final int MESSAGE_SEND_EMAIL			= 11;
-	
+	static final int MESSAGE_SEND_EMAIL = 11;
+
 	// Task Information Functions
-	static final int MESSAGE_GET_BAMBI_TASKS		= 21;
-	static final int MESSAGE_RECEIVE_BAMBI_TASKS	= 22;
-	
+	static final int MESSAGE_GET_BAMBI_TASKS = 21;
+	static final int MESSAGE_RECEIVE_BAMBI_TASKS = 22;
+
 	// Urgency Enum
 	public enum URGENCY {
 		NOW, SCHEDULE, WIFI_ACTIVE,
 	}
-	
+
 	// Task Type Enum
 	public enum TASK_TYPE {
 		EMAIL
 	}
-	
+
 	// Local Variables
 	Context context = null;
-	
+
 	/**
 	 * Local contructor to establish context.
 	 * 
-	 * @param context Current activity context.
+	 * @param context
+	 *            Current activity context.
 	 */
 	public BambiLib(Context context) {
 		super();
-		this.context = context;
-	}
 
+		// Establish Context
+		this.context = context;
+
+		// Bind to Service
+		bindBambiService();
+	}
 
 	/**
 	 * Sends a requested email as a Task to BambiService.
@@ -58,13 +64,26 @@ public class BambiLib {
 		if (task == null || email == null) {
 			throw new RuntimeException("Task and Email cannot be null types.");
 		}
-		
-		// Bind to service
-		bindBambiService();
-		
-		return false;
+
+		// Ensure Service is bound
+		if (mIsBambiServiceBound && mBambiServiceMessenger != null) {
+			// Get a Message
+			Message msg = Message.obtain(null,
+					BambiLib.MESSAGE_SEND_EMAIL);
+
+			// Send Message to Service
+			try {
+				mBambiServiceMessenger.send(msg);
+			} catch (RemoteException e) {
+				Config.Log("sendEmail(): ERROR: " + e.toString());
+			}
+			
+			return true;
+		} else {
+			// Service might have been killed by Kernel, try again later.
+			return false;
+		}
 	}
-	
 
 	/**
 	 * Method that binds to the BambiEnergyService.
@@ -72,12 +91,12 @@ public class BambiLib {
 	private void bindBambiService() {
 		// Create Intent for Service
 		Intent intent = new Intent();
-		intent.setComponent(
-				new ComponentName("com.ndnxr.bambi", "com.ndnxr.bambi.BambiEnergyService"));
-		
+		intent.setComponent(new ComponentName("com.ndnxr.bambi",
+				"com.ndnxr.bambi.BambiEnergyService"));
+
 		// Bind to Service
-		context.bindService(intent,
-				mServiceConnection, Context.BIND_AUTO_CREATE);
+		context.bindService(intent, mServiceConnection,
+				Context.BIND_AUTO_CREATE);
 
 		// Set bound flag
 		mIsBambiServiceBound = true;
@@ -132,11 +151,11 @@ public class BambiLib {
 			try {
 				// Get a Message
 				Message msg = Message.obtain(null,
-						BambiLib.MESSAGE_SEND_EMAIL);
-				
+						BambiLib.MESSAGE_REGISTER_CLIENT);
+
 				// Set reply Handler
 				msg.replyTo = mClientMessenger;
-				
+
 				// Send Message to Service
 				mBambiServiceMessenger.send(msg);
 			} catch (RemoteException e) {
