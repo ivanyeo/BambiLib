@@ -40,6 +40,9 @@ public class BambiLib {
 	// Local Variables
 	private Context context = null;
 	private final ArrayList<Task> pendingTasks = new ArrayList<Task>();
+	private volatile boolean shutdownRequested = false;
+	private volatile Object syncObject = new Object();
+	private volatile Object shutdownSyncObject = new Object();
 
 	/**
 	 * Local contructor to establish context.
@@ -91,7 +94,8 @@ public class BambiLib {
 			return false;
 		}
 
-		if (mBambiServiceMessenger == null) {
+		// Error Check: Cannot process Task when ServiceConnection is not ready
+		if (!isServiceMessengerReady()) {
 			Config.Log("mBambiServiceMessenger is null!!");
 			return false;
 		}
@@ -124,10 +128,12 @@ public class BambiLib {
 		switch (task.getUrgency()) {
 		case URGENT:
 			// Service has not started
-			if (mBambiServiceMessenger == null) {
-				// Append to pending taks list
-				pendingTasks.add(task);
-
+			if (!isServiceMessengerReady()) {
+				synchronized (pendingTasks) {
+					// Append to pending taks list
+					pendingTasks.add(task);
+				}
+				
 				return true;
 			} else {
 				// Begin processing the task
@@ -148,13 +154,15 @@ public class BambiLib {
 	 * Process all tasks that are in the pending tast list.
 	 */
 	private void processPendingTasks() {
-		// Process each task in the list
-		for (Task t : pendingTasks) {
-			processTask(t);
+		synchronized (pendingTasks) {
+			// Process each task in the list
+			for (Task t : pendingTasks) {
+				processTask(t);
+			}
+			
+			// Empty the list
+			pendingTasks.clear();
 		}
-		
-		// Empty the list
-		pendingTasks.clear();
 	}
 
 	/**
@@ -183,7 +191,7 @@ public class BambiLib {
 	private void unbindBambiService() {
 		// Unregister Service if it has been bound
 		if (mIsBambiServiceBound) {
-			if (mBambiServiceMessenger != null) {
+			if (isServiceMessengerReady()) {
 				try {
 					// Send Message to BambiEnergy Service to UNREGISTER_CLIENT
 					Message msg = Message.obtain(null,
@@ -205,20 +213,52 @@ public class BambiLib {
 			Config.Log("MainActivity::unbindBambiService(): Success");
 		}
 	}
+	
+	/**
+	 * Shutdown the BambiLib. This releases the ServiceConnection with the Service.
+	 */
+	public void shutdown() {
+		synchronized (shutdownSyncObject) {
+			// Error check
+			if (shutdownRequested == true) {
+				return; 
+			}
+			
+			// Set Flag
+			shutdownRequested = true;
+		}
+		
+		synchronized (pendingTasks) {
+			// Shutdown when there are no PendingTasks
+			if (pendingTasks.size() == 0) {
+				unbindBambiService();
+			}
+		}
+	}
+	
+	private boolean isServiceMessengerReady() {
+		synchronized (syncObject) {
+			return mBambiServiceMessenger != null;
+		}
+	}
 
 	/** Messenger connection to BambiEnergyService */
 	private volatile Messenger mBambiServiceMessenger = null;
 
 	/** Flag if client is connected to BambiEnergyService */
-	private boolean mIsBambiServiceBound = false;
+	private volatile boolean mIsBambiServiceBound = false;
 
 	/** Client ServiceConnection to BambiEnergyService */
 	private ServiceConnection mServiceConnection = new ServiceConnection() {
 		@Override
 		public void onServiceConnected(ComponentName className, IBinder service) {
-			// Bound to BambiEnergyService, establish Messenger to the Service
-			mBambiServiceMessenger = new Messenger(service);
-
+			
+			// Synchronize before update
+			synchronized (syncObject) {
+				// Bound to BambiEnergyService, establish Messenger to the Service
+				mBambiServiceMessenger = new Messenger(service);
+			}
+			
 			// Make request to register client
 			try {
 				// Get a Message
@@ -234,9 +274,18 @@ public class BambiLib {
 				// If Service crashes, nothing to do here
 			}
 
-			// If there are tasks pending, begin processing them
-			if (pendingTasks.size() > 0) {
-				processPendingTasks();
+			// Synchronize before accessing pendingTasks
+			synchronized (pendingTasks) {
+				// If there are tasks pending, begin processing them
+				if (pendingTasks.size() > 0) {
+					processPendingTasks();
+				}
+			}
+			
+			synchronized (shutdownSyncObject) {
+				if (shutdownRequested == true) {
+					unbindBambiService();
+				}
 			}
 			
 			Config.Log("mServiceConnection::onServiceConnected()");
