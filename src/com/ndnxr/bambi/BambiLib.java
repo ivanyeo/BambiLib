@@ -29,7 +29,7 @@ public class BambiLib {
 
 	// Urgency Enum
 	public enum URGENCY {
-		NOW, SCHEDULE, WIFI_ACTIVE,
+		URGENT, SCHEDULE, NORMAL,
 	}
 
 	// Task Type Enum
@@ -122,7 +122,7 @@ public class BambiLib {
 
 	private boolean scheduleTask(Task task) {
 		switch (task.getUrgency()) {
-		case NOW:
+		case URGENT:
 			// Service has not started
 			if (mBambiServiceMessenger == null) {
 				// Append to pending taks list
@@ -135,7 +135,7 @@ public class BambiLib {
 			}
 		case SCHEDULE:
 			break;
-		case WIFI_ACTIVE:
+		case NORMAL:
 			break;
 		default:
 			throw new RuntimeException("Invalid URGENCY Type.");
