@@ -1,6 +1,5 @@
 package com.ndnxr.bambi;
 
-import java.io.Serializable;
 import java.util.Date;
 
 import android.os.Parcel;
