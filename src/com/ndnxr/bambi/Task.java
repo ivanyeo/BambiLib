@@ -13,9 +13,9 @@ public class Task implements Parcelable {
 	private URGENCY urgency;
 	private Date date;
 	private TASK_TYPE type;
-	private Object payload;
+	private Parcelable payload;
 
-	public Task(TASK_TYPE type, URGENCY urgency, Date date, Object payload) {
+	public Task(TASK_TYPE type, URGENCY urgency, Date date, Parcelable payload) {
 		super();
 
 		// Error check
@@ -40,14 +40,14 @@ public class Task implements Parcelable {
 		urgency = (URGENCY) in.readSerializable();
 		date = (Date) in.readSerializable();
 		type = (TASK_TYPE) in.readSerializable();
-		payload = in.readSerializable();
+		payload = in.readParcelable(Email.class.getClassLoader());
 	}
 
 	public Object getPayload() {
 		return payload;
 	}
 
-	public void setPayload(Object payload) {
+	public void setPayload(Parcelable payload) {
 		this.payload = payload;
 	}
 
@@ -86,7 +86,7 @@ public class Task implements Parcelable {
 		dest.writeSerializable(urgency);
 		dest.writeSerializable(date);
 		dest.writeSerializable(type);
-		dest.writeSerializable((Serializable) payload);
+		dest.writeParcelable(payload, flags);
 	}
 
 	public static final Parcelable.Creator<Task> CREATOR = new Parcelable.Creator<Task>() {
