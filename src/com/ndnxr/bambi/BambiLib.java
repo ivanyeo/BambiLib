@@ -41,7 +41,7 @@ public class BambiLib {
 	private Context context = null;
 	private final ArrayList<Task> pendingTasks = new ArrayList<Task>();
 	private volatile boolean shutdownRequested = false;
-	private volatile Object syncObject = new Object();
+	private volatile Object bambiServiceMessengerSyncObject = new Object();
 	private volatile Object shutdownSyncObject = new Object();
 
 	/**
@@ -237,7 +237,7 @@ public class BambiLib {
 	}
 	
 	private boolean isServiceMessengerReady() {
-		synchronized (syncObject) {
+		synchronized (bambiServiceMessengerSyncObject) {
 			return mBambiServiceMessenger != null;
 		}
 	}
@@ -254,7 +254,7 @@ public class BambiLib {
 		public void onServiceConnected(ComponentName className, IBinder service) {
 			
 			// Synchronize before update
-			synchronized (syncObject) {
+			synchronized (bambiServiceMessengerSyncObject) {
 				// Bound to BambiEnergyService, establish Messenger to the Service
 				mBambiServiceMessenger = new Messenger(service);
 			}
