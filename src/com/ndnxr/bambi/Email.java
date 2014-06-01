@@ -1,9 +1,11 @@
 package com.ndnxr.bambi;
 
+import java.io.Serializable;
+
 import android.os.Parcel;
 import android.os.Parcelable;
 
-public class Email implements Parcelable {
+public class Email implements Parcelable, Serializable {
 	private String to, from, cc, bcc, subject, message;
 	private String[] filePaths = new String[1];
 

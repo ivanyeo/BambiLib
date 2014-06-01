@@ -1,5 +1,6 @@
 package com.ndnxr.bambi;
 
+import java.io.Serializable;
 import java.util.Date;
 
 import android.os.Parcel;
@@ -8,11 +9,18 @@ import android.os.Parcelable;
 import com.ndnxr.bambi.BambiLib.TASK_TYPE;
 import com.ndnxr.bambi.BambiLib.URGENCY;
 
-public class Task implements Parcelable {
+public class Task implements Parcelable, Serializable {
 	private URGENCY urgency;
-	private Date date;
+	private Date deadline;
 	private TASK_TYPE type;
 	private Parcelable payload;
+	
+	// Cell Information
+	private int cellSignalStrengthDbm;
+	private int cellDataNetworkType;
+	
+	// Wifi Information
+	private int wifiSignalStrengthDbm;
 
 	public Task(TASK_TYPE type, URGENCY urgency, Date date, Parcelable payload) {
 		super();
@@ -30,16 +38,19 @@ public class Task implements Parcelable {
 		// Set values
 		this.type = type;
 		this.urgency = urgency;
-		this.date = date;
+		this.deadline = date;
 		this.payload = payload;
 	}
 
 	public Task(Parcel in) {
 		// Re-contruction of object from Parcel
 		urgency = (URGENCY) in.readSerializable();
-		date = (Date) in.readSerializable();
+		deadline = (Date) in.readSerializable();
 		type = (TASK_TYPE) in.readSerializable();
 		payload = in.readParcelable(Email.class.getClassLoader());
+		cellSignalStrengthDbm = in.readInt();
+		cellDataNetworkType = in.readInt();
+		wifiSignalStrengthDbm = in.readInt();
 	}
 
 	public Object getPayload() {
@@ -58,12 +69,12 @@ public class Task implements Parcelable {
 		this.urgency = urgency;
 	}
 
-	public Date getDate() {
-		return date;
+	public Date getDeadline() {
+		return deadline;
 	}
 
-	public void setDate(Date date) {
-		this.date = date;
+	public void setDeadline(Date deadline) {
+		this.deadline = deadline;
 	}
 
 	public TASK_TYPE getType() {
@@ -79,13 +90,40 @@ public class Task implements Parcelable {
 		return 0;
 	}
 
+	public int getCellSignalStrengthDbm() {
+		return cellSignalStrengthDbm;
+	}
+
+	public void setCellSignalStrengthDbm(int cellSignalStrengthDbm) {
+		this.cellSignalStrengthDbm = cellSignalStrengthDbm;
+	}
+
+	public int getCellDataNetworkType() {
+		return cellDataNetworkType;
+	}
+
+	public void setCellDataNetworkType(int cellDataNetworkType) {
+		this.cellDataNetworkType = cellDataNetworkType;
+	}
+
+	public int getWifiSignalStrengthDbm() {
+		return wifiSignalStrengthDbm;
+	}
+
+	public void setWifiSignalStrengthDbm(int wifiSignalStrengthDbm) {
+		this.wifiSignalStrengthDbm = wifiSignalStrengthDbm;
+	}
+	
 	@Override
 	public void writeToParcel(Parcel dest, int flags) {
 		// Flatten/Serialize Data
 		dest.writeSerializable(urgency);
-		dest.writeSerializable(date);
+		dest.writeSerializable(deadline);
 		dest.writeSerializable(type);
 		dest.writeParcelable(payload, flags);
+		dest.writeInt(cellSignalStrengthDbm);
+		dest.writeInt(cellDataNetworkType);
+		dest.writeInt(wifiSignalStrengthDbm);
 	}
 
 	public static final Parcelable.Creator<Task> CREATOR = new Parcelable.Creator<Task>() {
