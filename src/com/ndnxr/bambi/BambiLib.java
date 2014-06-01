@@ -1,6 +1,7 @@
 package com.ndnxr.bambi;
 
 import java.util.ArrayList;
+import java.util.Date;
 
 import android.content.ComponentName;
 import android.content.Context;
@@ -12,6 +13,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcelable;
 import android.os.RemoteException;
+import android.telephony.TelephonyManager;
 
 public class BambiLib {
 	// Messages to be passed to the Service by Clients for processing
@@ -27,6 +29,14 @@ public class BambiLib {
 	static final int MESSAGE_GET_BAMBI_TASKS = 21;
 	static final int MESSAGE_RECEIVE_BAMBI_TASKS = 22;
 
+	// Messages for BambiService
+	public static final int MESSAGE_STORE_TASK = 31;
+	public static final int MESSAGE_STORE_OTHERS = 32;
+	
+	// BambiService Message: Key values used for Intent Messages
+	public static final String MESSAGE_STORE = "STORE_MESSAGE";
+	public static final String MESSAGE_TASK = "TASK";
+
 	// Urgency Enum
 	public enum URGENCY {
 		URGENT, SCHEDULE, NORMAL,
@@ -36,7 +46,7 @@ public class BambiLib {
 	public enum TASK_TYPE {
 		EMAIL
 	}
-
+	
 	// Local Variables
 	private Context context = null;
 	private final ArrayList<Task> pendingTasks = new ArrayList<Task>();
@@ -107,8 +117,9 @@ public class BambiLib {
 			Message msg = Message.obtain(null, BambiLib.MESSAGE_SEND_EMAIL);
 
 			// Place Parcelable here, not in the obj of Message.obtain()
-			msg.getData().putParcelable("email", (Parcelable) task.getPayload());
-			
+			msg.getData()
+					.putParcelable("email", (Parcelable) task.getPayload());
+
 			// Send Message to Service
 			try {
 				mBambiServiceMessenger.send(msg);
@@ -116,7 +127,7 @@ public class BambiLib {
 				Config.Log("sendEmail(): ERROR: " + e.toString());
 			}
 			break;
-			
+
 		default:
 			throw new RuntimeException("Invalid TASK_TYPE.");
 		}
@@ -124,24 +135,48 @@ public class BambiLib {
 		return true;
 	}
 
+	/**
+	 * Method that schedule Task according to the URGENCY type.
+	 * 
+	 * @param task
+	 *            Given Task to be scheduled.
+	 * 
+	 * @return true on successful scheduling; false otherwise
+	 */
 	private boolean scheduleTask(Task task) {
 		switch (task.getUrgency()) {
 		case URGENT:
 			// Service has not started
 			if (!isServiceMessengerReady()) {
 				synchronized (pendingTasks) {
-					// Append to pending taks list
+					// Append to pending task list
 					pendingTasks.add(task);
 				}
-				
+
 				return true;
 			} else {
 				// Begin processing the task
 				return processTask(task);
 			}
-		case SCHEDULE:
-			break;
-		case NORMAL:
+			
+		// Fall-through cases: Only difference is the checking of deadline Date object in URGENCY.SCHEDULE
+		case SCHEDULE:	// Perform Task on Wifi Active or Before Deadline
+			// Error Check: Task deadline cannot be in the past
+			if (task.getDeadline() != null && !task.getDeadline().after(new Date())) {
+				return false;
+			}
+		case NORMAL:	// Send only when there is Wifi connection
+			// Create BambiEnergyService Intent
+			Intent intent = new Intent();
+			intent.setComponent(new ComponentName("com.ndnxr.bambi",
+					"com.ndnxr.bambi.BambiEnergyService"));
+			
+			intent.putExtra(BambiLib.MESSAGE_STORE, BambiLib.MESSAGE_STORE_TASK);
+			intent.putExtra(BambiLib.MESSAGE_TASK, (Parcelable) task);
+			
+			// Start service with single message
+			context.startService(intent);
+
 			break;
 		default:
 			throw new RuntimeException("Invalid URGENCY Type.");
@@ -149,7 +184,7 @@ public class BambiLib {
 
 		return true;
 	}
-	
+
 	/**
 	 * Process all tasks that are in the pending tast list.
 	 */
@@ -159,7 +194,7 @@ public class BambiLib {
 			for (Task t : pendingTasks) {
 				processTask(t);
 			}
-			
+
 			// Empty the list
 			pendingTasks.clear();
 		}
@@ -213,21 +248,22 @@ public class BambiLib {
 			Config.Log("MainActivity::unbindBambiService(): Success");
 		}
 	}
-	
+
 	/**
-	 * Shutdown the BambiLib. This releases the ServiceConnection with the Service.
+	 * Shutdown the BambiLib. This releases the ServiceConnection with the
+	 * Service.
 	 */
 	public void shutdown() {
 		synchronized (shutdownSyncObject) {
 			// Error check
 			if (shutdownRequested == true) {
-				return; 
+				return;
 			}
-			
+
 			// Set Flag
 			shutdownRequested = true;
 		}
-		
+
 		synchronized (pendingTasks) {
 			// Shutdown when there are no PendingTasks
 			if (pendingTasks.size() == 0) {
@@ -235,7 +271,7 @@ public class BambiLib {
 			}
 		}
 	}
-	
+
 	private boolean isServiceMessengerReady() {
 		synchronized (bambiServiceMessengerSyncObject) {
 			return mBambiServiceMessenger != null;
@@ -252,13 +288,14 @@ public class BambiLib {
 	private ServiceConnection mServiceConnection = new ServiceConnection() {
 		@Override
 		public void onServiceConnected(ComponentName className, IBinder service) {
-			
+
 			// Synchronize before update
 			synchronized (bambiServiceMessengerSyncObject) {
-				// Bound to BambiEnergyService, establish Messenger to the Service
+				// Bound to BambiEnergyService, establish Messenger to the
+				// Service
 				mBambiServiceMessenger = new Messenger(service);
 			}
-			
+
 			// Make request to register client
 			try {
 				// Get a Message
@@ -281,13 +318,13 @@ public class BambiLib {
 					processPendingTasks();
 				}
 			}
-			
+
 			synchronized (shutdownSyncObject) {
 				if (shutdownRequested == true) {
 					unbindBambiService();
 				}
 			}
-			
+
 			Config.Log("mServiceConnection::onServiceConnected()");
 		}
 
