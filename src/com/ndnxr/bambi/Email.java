@@ -1,63 +1,132 @@
 package com.ndnxr.bambi;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 
 import android.os.Parcel;
 import android.os.Parcelable;
 
 public class Email implements Parcelable, Serializable {
-	private String to, from, cc, bcc, subject, message;
-	private String[] filePaths = new String[1];
-
-	// For Serializable interface
-	//private static final long serialVersionUID = 0L;
-
-	public Email(String to, String from, String cc, String bcc, String subject,
-			String message, String[] filePaths) {
+	/**
+	 * Email Version to keep track of during software upgrades. 
+	 */
+	private static final long serialVersionUID = 1L;
+	
+	private String username;
+	private String password;
+	private String serverAddress;
+	private String serverPort;
+	
+	private String from, subject, message;
+	private String[] toArray = new String[8];
+	private String[] filePaths = new String[8];
+	
+	public Email(String username, String password, String serverAddress,
+			String serverPort, String from, String subject, String message,
+			String[] toArray, String[] filePaths) {
 		super();
-		this.to = to;
-		this.from = from;
-		this.cc = cc;
-		this.bcc = bcc;
-		this.subject = subject;
-		this.message = message;
-		this.filePaths = filePaths;
-	}
-
-	public Email(String to, String from, String subject, String message,
-			String[] filePaths) {
-		super();
-		this.to = to;
-		this.from = from;
-		this.subject = subject;
-		this.message = message;
-		this.filePaths = filePaths;
-	}
-
-	public Email(String to, String from, String subject, String message) {
-		super();
-		this.to = to;
+		this.username = username;
+		this.password = password;
+		this.serverAddress = serverAddress;
+		this.serverPort = serverPort;
 		this.from = from;
 		this.subject = subject;
 		this.message = message;
+		
+		// Copy array over
+		if (toArray != null) {
+			for (int i=0; i<toArray.length; i++) {
+				this.toArray[i] = toArray[i];
+			}
+		}
+		
+		if (filePaths != null) {
+			for (int i=0; i<filePaths.length; i++) {
+				this.filePaths[i] = filePaths[i];
+			}
+		}
+		
 	}
 
 	public Email(Parcel in) {
-		to = in.readString();
+		username = in.readString();
+		password = in.readString();
+		serverAddress = in.readString();
+		serverPort = in.readString();
+		
 		from = in.readString();
-		cc = in.readString();
-		bcc = in.readString();
 		subject = in.readString();
 		message = in.readString();
+		
+		in.readStringArray(toArray);
 		in.readStringArray(filePaths);
 	}
-
-	public String getCc() {
-		return cc;
+	
+	@Override
+	public String toString() {
+		return String.format("%s, %s, %s", from, subject, message);
 	}
 
-	public void setCc(String cc) {
-		this.cc = cc;
+	@Override
+	public int describeContents() {
+		return 0;
+	}
+
+	@Override
+	public void writeToParcel(Parcel dest, int flags) {
+		dest.writeString(username);
+		dest.writeString(password);
+		dest.writeString(serverAddress);
+		dest.writeString(serverPort);
+		
+		dest.writeString(from);
+		dest.writeString(subject);
+		dest.writeString(message);
+		
+		dest.writeStringArray(toArray);
+		dest.writeStringArray(filePaths);
+	}
+	
+	public static final Parcelable.Creator<Email> CREATOR = new Parcelable.Creator<Email>() {
+		public Email createFromParcel(Parcel in) {
+			return new Email(in);
+		}
+
+		public Email[] newArray(int size) {
+			return new Email[size];
+		}
+	};
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		this.password = password;
+	}
+
+	public String getServerAddress() {
+		return serverAddress;
+	}
+
+	public void setServerAddress(String serverAddress) {
+		this.serverAddress = serverAddress;
+	}
+
+	public String getServerPort() {
+		return serverPort;
+	}
+
+	public void setServerPort(String serverPort) {
+		this.serverPort = serverPort;
 	}
 
 	public String getFrom() {
@@ -66,22 +135,6 @@ public class Email implements Parcelable, Serializable {
 
 	public void setFrom(String from) {
 		this.from = from;
-	}
-
-	public String getTo() {
-		return to;
-	}
-
-	public void setTo(String to) {
-		this.to = to;
-	}
-
-	public String getBcc() {
-		return bcc;
-	}
-
-	public void setBcc(String bcc) {
-		this.bcc = bcc;
 	}
 
 	public String getSubject() {
@@ -100,6 +153,14 @@ public class Email implements Parcelable, Serializable {
 		this.message = message;
 	}
 
+	public String[] getToArray() {
+		return toArray;
+	}
+
+	public void setToArray(String[] toArray) {
+		this.toArray = toArray;
+	}
+
 	public String[] getFilePaths() {
 		return filePaths;
 	}
@@ -107,35 +168,5 @@ public class Email implements Parcelable, Serializable {
 	public void setFilePaths(String[] filePaths) {
 		this.filePaths = filePaths;
 	}
-	
-	@Override
-	public String toString() {
-		return String.format("%s, %s, %s, %s", to, from, subject, message);
-	}
 
-	@Override
-	public int describeContents() {
-		return 0;
-	}
-
-	@Override
-	public void writeToParcel(Parcel dest, int flags) {
-		dest.writeString(to);
-		dest.writeString(from);
-		dest.writeString(cc);
-		dest.writeString(bcc);
-		dest.writeString(subject);
-		dest.writeString(message);
-		dest.writeStringArray(filePaths);
-	}
-	
-	public static final Parcelable.Creator<Email> CREATOR = new Parcelable.Creator<Email>() {
-		public Email createFromParcel(Parcel in) {
-			return new Email(in);
-		}
-
-		public Email[] newArray(int size) {
-			return new Email[size];
-		}
-	};
 }
