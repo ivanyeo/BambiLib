@@ -33,6 +33,9 @@ public class BambiLib {
 	public static final int MESSAGE_STORE_TASK = 31;
 	public static final int MESSAGE_STORE_OTHERS = 32;
 	
+	// Messages reply from BambiService
+	public static final int MESSAGE_PROCESS_TASK_COMPLETE = 41;
+	
 	// BambiService Message: Key values used for Intent Messages
 	public static final String MESSAGE_STORE = "STORE_MESSAGE";
 	public static final String MESSAGE_TASK = "TASK";
