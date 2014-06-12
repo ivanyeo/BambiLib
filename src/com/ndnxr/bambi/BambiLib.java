@@ -121,7 +121,7 @@ public class BambiLib {
 
 			// Place Parcelable here, not in the obj of Message.obtain()
 			msg.getData()
-					.putParcelable("email", (Parcelable) task.getPayload());
+					.putParcelable(MESSAGE_TASK, (Parcelable) task);
 
 			// Send Message to Service
 			try {
